@@ -154,7 +154,7 @@ class DQNAgent:
                  env,
                  capacity=20000,
                  hidden_dim: int = 32,
-                 batch_size=128,
+                 batch_size=64,
                  epochs=2):
         if env is None:
             raise Exception("agent should have an environment")
@@ -163,8 +163,8 @@ class DQNAgent:
         self.S = None
         self.A = None
         self.experience = Experience(capacity=capacity)
-        self.input_dim = 2
-        self.output_dim = 7  # [-3000,-2000,...,3000]
+        self.input_dim = 7
+        self.output_dim = 16
         self.hidden_dim = hidden_dim
         # 行为网络，该网络用来计算产生行为，以及对应的Q值，每次更新
         self.behavior_Q = NetApproximator(input_dim=self.input_dim,
@@ -173,7 +173,7 @@ class DQNAgent:
         self.target_Q = self.behavior_Q.clone()  # 计算价值目标的Q，不定期更新
 
         self.batch_size = batch_size  # 批学习一次状态转换数量
-        self.epochs = epochs  # 统一批状态转换学习的次数
+        self.epochs = epochs  # 统一批状态转换神经网络学习的次数 approximator.py 62行
         return
 
     def _update_target_Q(self):
@@ -189,7 +189,7 @@ class DQNAgent:
         rand_value = random.random()
         if epsilon is not None and rand_value < epsilon:
             # return self.env.action_space.sample()  # discrete.py19行，因该是系统文件
-            return int(np.random.rand() * 7)
+            return int(np.random.rand() * 16)
         else:
             return int(np.argmax(Q_s))
 
@@ -212,11 +212,11 @@ class DQNAgent:
             if epsilon is None:
                 epsilon = 1e-10
             elif decaying_epsilon:
-                # epsilon = 1.0 / (1 + num_episode)
-                epsilon = self._decayed_epsilon(cur_episode=num_episode + 1,
-                                                min_epsilon=min_epsilon,
-                                                max_epsilon=1.0,
-                                                target_episode=int(max_episode_num * min_epsilon_ratio))
+                epsilon = max(1 - 0.00103 * i, 0)
+                # epsilon = self._decayed_epsilon(cur_episode=num_episode + 1,
+                #                                 min_epsilon=min_epsilon,
+                #                                 max_epsilon=1.0,
+                #                                 target_episode=int(max_episode_num * min_epsilon_ratio))
             # 进行一轮学习
             time_in_episode, episode_reward = self.learning_method(lambda_=lambda_,
                                                                    gamma=gamma, alpha=alpha, epsilon=epsilon,
@@ -229,8 +229,8 @@ class DQNAgent:
         # self.experience.last_episode.print_detail()
         return total_times, episode_rewards, num_episodes
 
-    def learning_method(self, gamma=0.9, alpha=0.1, epsilon=1e-5,
-                        display=False, lambda_=None):
+    def learning_method(self, lambda_=None, gamma=0.9, alpha=0.1, epsilon=1e-5,
+                        display=False):
         self.state = self.env.reset()  # 应该是继承的Agent的值
         # s0 = self.state
         if display:
@@ -240,9 +240,8 @@ class DQNAgent:
         loss = 0
         while not is_done:
             # add code here
-            time_in_episode += 1
             s0 = self.state  # 应该是继承的Agent的值
-            # a0 = self.perform_policy(s0, epsilon)
+            # policy函数中会进行神经网络前向计算从而归一化，传参s0_copy避免s0被归一化
             a0 = self.policy(s0, epsilon)
             s1, r1, is_done, info, total_reward = self.act(a0)  # 此函数将s1赋给s0了
             if display:
@@ -251,8 +250,8 @@ class DQNAgent:
             if self.total_trans > self.batch_size:
                 loss += self._learn_from_memory(gamma, alpha)
             # s0 = s1
-
-            is_done = bool(time_in_episode == 1440)  # 一天24小时1440分钟
+            time_in_episode += 10
+            is_done = bool(time_in_episode == 960)  # 一天24小时1440分钟
         loss /= time_in_episode
         if display:
             print("epsilon:{:3.2f},loss:{:3.2f},{}".format(epsilon, loss, self.experience.last_episode))
@@ -276,11 +275,13 @@ class DQNAgent:
         states_1 = np.vstack([x.s1 for x in trans_pieces])
 
         X_batch = states_0  # 128*6
-        y_batch = self.target_Q(states_0)  # 128*5 得到numpy格式的结果
+        y_batch = self.behavior_Q(states_0)  # 128*5 得到numpy格式的结果
         # 0，表示每一列的最大值的索引，axis=1表示每一行的最大值的索引#target_Q(states_1)行和列表示什么？
-        Q_target = reward_1 + gamma * np.max(self.target_Q(states_1), axis=1) * \
+        Q_target = reward_1 + gamma * np.max(self.behavior_Q(states_1), axis=1) * \
                    (~ is_done)  # 128*1 is_done则Q_target==reward_1
-
+        # for i in range(len(Q_target)):
+        #     if Q_target[i] < -1:
+        #         Q_target[i] = -1
         # switch this on will make DQN to DDQN
         # 行为a'从行为价值网络中得到
         # a_prime = np.argmax(self.behavior_Q(states_1), axis=1).reshape(-1)#reshape(-1)拉成一行

@@ -13,12 +13,25 @@ class NetApproximator(nn.Module):
             output_dim: 输出层的特征数 int
         """
         super(NetApproximator, self).__init__()
-        self.linear1 = torch.nn.Linear(input_dim, hidden_dim)
-        self.linear2 = torch.nn.Linear(hidden_dim, output_dim)
+        self.linear1 = torch.nn.Linear(input_dim, 32)
+        # self.hidden1 = torch.nn.Linear(32, 64)
+        # self.hidden2 = torch.nn.Linear(64, 128)
+        self.linear2 = torch.nn.Linear(32, output_dim)
 
     def _prepare_data(self, x, requires_grad=False):
         """将numpy格式的数据转化为Torch的Variable
         """
+        # 先进行归一化
+        # agent 188行是一维，278行是二维
+        if x.ndim == 1:
+            x[4] = (x[4] - 18) / (32 - 18)
+            x[5] = (x[5] - 26) / (34 - 26)
+            x[6] = x[6] / 10445
+        elif x.ndim == 2:
+            y=x[:,4]
+            x[:, 4] = (x[:, 4] - 18) / (32 - 18)
+            x[:, 5] = (x[:, 5] - 26) / (34 - 26)
+            x[:, 6] = x[:, 6] / 10445
         if isinstance(x, np.ndarray):
             x = torch.from_numpy(x)
         if isinstance(x, int):  # 同时接受单个数据
@@ -32,10 +45,13 @@ class NetApproximator(nn.Module):
     def forward(self, x):
         """前向运算，根据网络输入得到网络输出
         """
-        x = self._prepare_data(x)
-        h_relu = F.relu(self.linear1(x))
-        # h_relu = self.linear1(x).clamp(min=0)
+        x_copy = copy.deepcopy(x)
+        x_copy = self._prepare_data(x_copy)
+        h_relu = F.relu(self.linear1(x_copy))
+        # h1 = F.relu(self.hidden1(h_relu))
+        # h2 = F.relu((self.hidden2(h1)))
         y_pred = self.linear2(h_relu)
+        # y_pred = self.linear2(h_relu)
         return y_pred
 
     def __call__(self, x):
