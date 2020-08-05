@@ -136,14 +136,17 @@ class Building:
             self.reward = hp * self.price / 6
 
         # 温度越界惩罚
+        # self.reward = 0
         if next_temperature > self.comfortable_temp_upper:
-            self.reward += 10000 * (next_temperature - self.comfortable_temp_upper)
+            self.reward += 100 * (next_temperature - self.comfortable_temp_upper)
         elif next_temperature < self.comfortable_temp_lower:
-            self.reward += 10000 * (self.comfortable_temp_lower - next_temperature)
+            self.reward += 100 * (self.comfortable_temp_lower - next_temperature)
+        # else:
+        #     self.reward = 0
 
         # 余冰不足惩罚
-        if self.ice < 0:
-            self.reward += abs(self.ice)
+        # if self.ice < 0:
+        #     self.reward += abs(self.ice)
 
         # 奖励函数值取负
         self.reward = -self.reward

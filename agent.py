@@ -154,7 +154,7 @@ class DQNAgent:
                  env,
                  capacity=20000,
                  hidden_dim: int = 32,
-                 batch_size=64,
+                 batch_size=100,
                  epochs=2):
         if env is None:
             raise Exception("agent should have an environment")
@@ -212,7 +212,7 @@ class DQNAgent:
             if epsilon is None:
                 epsilon = 1e-10
             elif decaying_epsilon:
-                epsilon = max(1 - 0.00103 * i, 0)
+                epsilon = max(1 - (1/(max_episode_num-5)) * i, 0)
                 # epsilon = self._decayed_epsilon(cur_episode=num_episode + 1,
                 #                                 min_epsilon=min_epsilon,
                 #                                 max_epsilon=1.0,
@@ -277,6 +277,9 @@ class DQNAgent:
         X_batch = states_0  # 128*6
         y_batch = self.behavior_Q(states_0)  # 128*5 得到numpy格式的结果
         # 0，表示每一列的最大值的索引，axis=1表示每一行的最大值的索引#target_Q(states_1)行和列表示什么？
+        u=self.behavior_Q(states_1)
+        i=np.max(self.behavior_Q(states_1),axis=1)
+        n=gamma * np.max(self.behavior_Q(states_1), axis=1)
         Q_target = reward_1 + gamma * np.max(self.behavior_Q(states_1), axis=1) * \
                    (~ is_done)  # 128*1 is_done则Q_target==reward_1
         # for i in range(len(Q_target)):
@@ -292,8 +295,8 @@ class DQNAgent:
         # Q_target = reward_1 + gamma * temp_Q * (~ is_done) # is_done则Q_target==reward_1
         # end of DDQN part
         # 函数返回一个有终点和起点的固定步长的排列 一个参数时，参数值为终点，起点取默认值0，步长取默认值1 不包括终点
-        x = np.arange(len(X_batch))  # 0-127
-        y = len(X_batch)  # 128
+        # x = np.arange(len(X_batch))  # 0-127
+        # y = len(X_batch)  # 128
         y_batch[np.arange(len(X_batch)), actions_0] = Q_target  # 全是ndarry
         # y_batch是128*5的二维矩阵，np.arange(len(X_batch))是y_batch第一维索引，actions_0是第二维索引，他俩组成（x，y）是Q_target插入位置
         # loss is a torch Variable with size of 1

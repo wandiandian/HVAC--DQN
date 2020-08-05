@@ -315,7 +315,8 @@ class DQNAgent:
         """得到Experience里记录的总的状态转换数量
         """
         return self.experience.total_trans
-import math
+import torch
 
-print(30 + 4.0 * math.sin(math.pi / 12 * ((0 + 480) / 60 - 10)))
+print(torch.__version__)
+print(torch.cuda.is_available())
 

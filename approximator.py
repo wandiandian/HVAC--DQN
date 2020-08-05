@@ -42,6 +42,19 @@ class NetApproximator(nn.Module):
             x = x.unsqueeze(0)
         return x
 
+    def _prepare_data_fit(self, x, requires_grad=False):
+        """将numpy格式的数据转化为Torch的Variable
+        """
+        if isinstance(x, np.ndarray):
+            x = torch.from_numpy(x)
+        if isinstance(x, int):  # 同时接受单个数据
+            x = torch.Tensor([[x]])
+        x.requires_grad_ = requires_grad
+        x = x.float()  # 从from_numpy()转换过来的数据是DoubleTensor形式
+        if x.data.dim() == 1:
+            x = x.unsqueeze(0)
+        return x
+
     def forward(self, x):
         """前向运算，根据网络输入得到网络输出
         """
@@ -69,7 +82,7 @@ class NetApproximator(nn.Module):
         if epochs < 1:
             epochs = 1
 
-        y = self._prepare_data(y, requires_grad=False)
+        y = self._prepare_data_fit(y, requires_grad=False)
 
         for t in range(epochs):
             y_pred = self.forward(x)  # 前向传播
